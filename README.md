@@ -16,6 +16,18 @@ This readme provides detailed explanations of the step function logic for all fi
 ### Overview
 A simple linear world where an agent moves left or right on a line to reach either end.
 
+### Action Space
+- **Type**: `Discrete(2)`
+- **Actions**:
+  - `0`: Move left (decrease position by 1)
+  - `1`: Move right (increase position by 1)
+
+### Observation Space (Position)
+- **Type**: `Box(low=[-5], high=[5], dtype=float32)`
+- **Shape**: `(1,)` - Single value representing current position
+- **Range**: [-5, +5] (left_end to right_end)
+- **Initial Position**: 0 (center of the line)
+
 ### Step Function Logic
 
 ```python
@@ -64,6 +76,21 @@ def step(self, action):
 
 ### Overview
 A 2D grid world where an agent navigates from start position (0,0) to the bottom-right corner (4,4).
+
+### Action Space
+- **Type**: `Discrete(4)`
+- **Actions**:
+  - `0`: Move up (decrease y-coordinate by 1)
+  - `1`: Move down (increase y-coordinate by 1)
+  - `2`: Move left (decrease x-coordinate by 1)
+  - `3`: Move right (increase x-coordinate by 1)
+
+### Observation Space (Position)
+- **Type**: `Box(low=[0, 0], high=[4, 4], dtype=int32)`
+- **Shape**: `(2,)` - Two values representing [x, y] coordinates
+- **Range**: [0, 4] for both x and y coordinates (5x5 grid)
+- **Initial Position**: [0, 0] (top-left corner)
+- **Goal Position**: [4, 4] (bottom-right corner)
 
 ### Step Function Logic
 
@@ -114,6 +141,22 @@ def step(self, action):
 
 ### Overview
 A physics simulation where an agent balances a pole on a movable cart by applying forces.
+
+### Action Space
+- **Type**: `Discrete(2)`
+- **Actions**:
+  - `0`: Push cart left (apply force of -10.0 N)
+  - `1`: Push cart right (apply force of +10.0 N)
+
+### Observation Space (State)
+- **Type**: `Box(low=[-4.8, -∞, -0.52, -∞], high=[4.8, ∞, 0.52, ∞], dtype=float32)`
+- **Shape**: `(4,)` - Four-dimensional state vector
+- **State Components**:
+  1. **Cart Position** (x): [-2.4, +2.4] meters from center
+  2. **Cart Velocity** (ẋ): Unlimited range, meters/second
+  3. **Pole Angle** (θ): [-15°, +15°] radians from vertical
+  4. **Pole Angular Velocity** (θ̇): Unlimited range, radians/second
+- **Initial State**: Small random values around [0, 0, 0, 0] (equilibrium)
 
 ### Step Function Logic
 
@@ -179,6 +222,26 @@ def step(self, action):
 
 ### Overview
 An underpowered car in a valley must build momentum to reach a goal on top of a hill.
+
+### Action Space
+- **Type**: `Discrete(3)`
+- **Actions**:
+  - `0`: Push left (apply force of -0.001)
+  - `1`: No action (coast, no force applied)
+  - `2`: Push right (apply force of +0.001)
+
+### Observation Space (State)
+- **Type**: `Box(low=[-1.2, -0.07], high=[0.6, 0.07], dtype=float32)`
+- **Shape**: `(2,)` - Two-dimensional state vector
+- **State Components**:
+  1. **Position** (x): [-1.2, 0.6] - Car's horizontal position on the hill
+     - Left boundary: -1.2 (bottom of left hill)
+     - Goal position: ≥0.5 (top of right hill)
+     - Valley bottom: ~-0.5
+  2. **Velocity** (v): [-0.07, +0.07] - Car's horizontal velocity
+     - Negative: moving left
+     - Positive: moving right
+- **Initial State**: Random position in valley [-0.6, -0.4] with zero velocity
 
 ### Step Function Logic
 
@@ -252,6 +315,27 @@ def step(self, action):
 ### Overview
 A classic explore-vs-exploit problem with multiple slot machines, each having different hidden reward probabilities.
 
+### Action Space
+- **Type**: `Discrete(n_arms)` (default: n_arms=5)
+- **Actions**:
+  - `0` to `n_arms-1`: Select which arm/slot machine to pull
+  - Each action corresponds to pulling a different bandit arm
+
+### Observation Space (State)
+- **Type**: `Box(low=[0], high=[max_steps], dtype=float32)`
+- **Shape**: `(1,)` - Single value representing current step number
+- **Range**: [0, max_steps] (default: max_steps=100)
+- **Rationale**: Minimal state information forces the agent to learn from reward history
+- **Hidden Information**: Arm probabilities are not observable (must be learned)
+
+### Hidden Environment Parameters
+- **Arm Probabilities**: Each arm has a Bernoulli success probability ∈ [0.1, 0.9]
+- **Optimal Arm**: The arm with the highest success probability
+- **Statistics Tracking**: 
+  - Pull counts per arm
+  - Total rewards per arm
+  - Cumulative regret
+
 ### Step Function Logic
 
 ```python
@@ -312,6 +396,42 @@ def step(self, action):
 
 ---
 
+## Action Space and Observation Space Summary
+
+| Environment | Action Space | Action Type | Observation Space | State Dimensions |
+|-------------|--------------|-------------|-------------------|------------------|
+| **1D Line** | Discrete(2) | Movement | Box([-5], [5]) | Position (1D) |
+| **2D Grid** | Discrete(4) | Movement | Box([0,0], [4,4]) | Position (2D) |
+| **CartPole** | Discrete(2) | Force | Box(4D continuous) | Physics State |
+| **Mountain Car** | Discrete(3) | Force | Box(2D continuous) | Position + Velocity |
+| **Bandit** | Discrete(N) | Selection | Box([0], [max_steps]) | Step Number |
+
+### Action Space Characteristics
+
+#### **Discrete Action Spaces**
+All environments use discrete action spaces, making them suitable for:
+- Q-learning algorithms
+- Policy gradient methods with categorical distributions
+- Simple exploration strategies (ε-greedy)
+
+#### **Action Types**
+1. **Movement Actions** (1D Line, 2D Grid): Direct spatial movement
+2. **Force Actions** (CartPole, Mountain Car): Physics-based force application
+3. **Selection Actions** (Bandit): Choice among options
+
+### Observation Space Characteristics
+
+#### **State Complexity Levels**
+1. **Simple Position** (1D Line, 2D Grid): Direct spatial coordinates
+2. **Physics State** (CartPole, Mountain Car): Position + velocity/acceleration
+3. **Minimal Information** (Bandit): Step counter only
+
+#### **State Normalization**
+- **1D/2D Grid**: Integer coordinates (discrete positions)
+- **CartPole**: Continuous physics variables (may need normalization for RL algorithms)
+- **Mountain Car**: Continuous but bounded variables
+- **Bandit**: Single integer (step counter)
+
 ## Common Patterns Across Environments
 
 ### 1. **Action Validation**
@@ -323,6 +443,7 @@ assert self.action_space.contains(action), f"Invalid action {action}"
 ### 2. **State Representation**
 - States returned as numpy arrays with appropriate dtypes
 - Consistent shape matching observation_space definition
+- Proper bounds checking for continuous spaces
 
 ### 3. **Reward Design**
 - **Sparse rewards**: Large positive rewards for goals
@@ -330,11 +451,16 @@ assert self.action_space.contains(action), f"Invalid action {action}"
 - **Survival rewards**: Positive rewards for maintaining good states
 
 ### 4. **Termination Conditions**
-- **Goal-based**: Episode ends when objective achieved
-- **Failure-based**: Episode ends when constraints violated
-- **Time-based**: Episode ends after maximum steps
+- **Goal-based**: Episode ends when objective achieved (1D Line, 2D Grid, Mountain Car)
+- **Failure-based**: Episode ends when constraints violated (CartPole)
+- **Time-based**: Episode ends after maximum steps (Bandit)
 
-### 5. **Information Dictionary**
+### 5. **Boundary Handling**
+- **Hard boundaries**: Movement blocked at edges (2D Grid)
+- **Soft boundaries**: Termination when exceeded (CartPole, 1D Line)
+- **Physical boundaries**: Realistic physics response (Mountain Car)
+
+### 6. **Information Dictionary**
 - Most environments return empty `info = {}`
 - Bandit environment provides rich analytics
 - Can be extended for debugging and analysis
